@@ -1,0 +1,4 @@
+# Package repositories
+deb https://devuan.keff.org/merged chimaera main  
+deb https://devuan.keff.org/merged chimaera-updates main  
+deb https://devuan.keff.org/merged chimaera-security main  
