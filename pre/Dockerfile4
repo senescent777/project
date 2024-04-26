@@ -1,0 +1,23 @@
+FROM bitnami/minideb:bullseye
+WORKDIR /
+COPY ./sources.list /etc/apt
+COPY ./01recommended /etc/apt/apt.d
+
+#wget --https-only https://ftp.funet.fi/pub/mirrors/ftp.debian.org/debian/pool/main/c/ca-certificates/ca-certificates_20230311_all.deb
+#wget --https-only https://ftp.funet.fi/pub/mirrors/ftp.debian.org/debian/pool/main/o/openssl/openssl_1.1.1w-0+deb11u1_amd64.deb
+COPY ./*.deb /var/cache/apt/archives/
+RUN dpkg -i  /var/cache/apt/archives/*.deb
+
+RUN touch doIt.sh
+RUN echo "#!/bin/sh" >> ./doIt.sh
+RUN echo "mkdir -p /tmp" >> ./doIt.sh
+RUN echo "chmod 0777 /tmp" >> ./doIt.sh
+RUN echo "apt-get update" >> ./doIt.sh
+RUN echo "apt-get upgrade -u" >> ./doIt.sh
+RUN echo "#apt-get install python3-pip" >> ./doIt.sh
+RUN echo "pip install --upgrade pip" >> ./doIt.sh
+
+RUN echo "cd /var/cache/apt/archives" >> ./doIt.sh
+#RUN echo "#tar -cvf /tmp/minideb.tar ./*.deb" >> ./doIt.sh
+
+RUN chmod 0555 ./doIt.sh
