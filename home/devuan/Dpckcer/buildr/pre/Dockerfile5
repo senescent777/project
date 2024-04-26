@@ -1,0 +1,32 @@
+FROM bitnami/python:3.12
+
+#210124 yllättäen toimiikin ilman lisäsäätöjä 
+COPY ./sources.list /etc/apt
+COPY ./01recommended /etc/apt/apt.d
+COPY ./trusted.gpg /etc/apt/trusted.gpg.d/
+
+#wget --https-only https://ftp.funet.fi/pub/mirrors/ftp.debian.org/debian/pool/main/c/ca-certificates/ca-certificates_20230311_all.deb
+#wget --https-only https://ftp.funet.fi/pub/mirrors/ftp.debian.org/debian/pool/main/o/openssl/openssl_1.1.1w-0+deb11u1_amd64.deb
+#COPY ./*.deb /var/cache/apt/archives/
+#RUN dpkg -i  /var/cache/apt/archives/*.deb
+#RUN apt-get update
+#RUN apt-get -y install python3-pip
+
+WORKDIR /app
+COPY ./requirements.txt .
+
+RUN touch doIt.sh
+#vissiin olrava bash koska source
+RUN echo "#!/bin/bash" >> ./doIt.sh
+
+RUN echo "python3 -m venv /opt/venv" >> ./doIt.sh
+RUN echo "source /opt/venv/bin/activate" >> ./doIt.sh
+
+RUN echo "pip install --upgrade pip" >> ./doIt.sh
+RUN echo "pip install -r requirements.txt" >> ./doIt.sh
+
+#2220124:tilap pois pelistä
+#RUN echo "#tar -cvpf /tmp/vnev.tar /opt/venv" >> ./doIt.sh
+#RUN echo "echo \"# mv buildr/tmp/vnev.tar buildr/source/ \"" >> ./doIt.sh
+#RUN chmod 0555 ./doIt.sh
+

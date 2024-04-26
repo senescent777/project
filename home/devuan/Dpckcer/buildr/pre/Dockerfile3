@@ -1,0 +1,26 @@
+FROM alpine:3.16
+WORKDIR /
+COPY ./repositories /etc/apk/
+
+RUN mkdir -p /data/apkcache
+RUN echo "#!/bin/sh" > ./doIt.sh
+RUN echo "apk update" >> ./doIt.sh
+#RUN echo "apk upgrade" >> ./doIt.sh ehkä huono idea
+
+RUN echo "cd /data/apkcache" >> ./doIt.sh
+#15 olisi sikäli parempi että linjassa backendin kanssa mutta...
+RUN echo "apk fetch -R gpg-agent gpg cronie postgresql14-client tini iptables" >> ./doIt.sh
+RUN echo "cd /" >> ./doIt.sh
+RUN echo "tar -cvf /tmp/3.16.tar /data/apkcache" >> ./doIt.sh
+
+RUN echo "rm -rf /data/apkcache/*;sleep 5" >> ./doIt.sh
+RUN echo "cd /data/apkcache" >> ./doIt.sh
+RUN echo "apk fetch -R openssl3 musl" >> ./doIt.sh
+RUN echo "cd /" >> ./doIt.sh
+RUN echo "tar -cvf /tmp/openssl.tar /data/apkcache" >> ./doIt.sh
+#RUN echo "cp /etc/apk/repositories /tmp" >> ./doIt.sh
+
+RUN echo "echo \"mv ./buildr/tmp/openssl.tar ./buildr;mv ./buildr/tmp/3.16.tar ./buildr \"" >> ./doIt.sh
+
+RUN chmod 0555 ./doIt.sh
+RUN apk add nano
