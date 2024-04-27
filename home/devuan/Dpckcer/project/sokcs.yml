@@ -1,0 +1,215 @@
+version: "3.7"
+
+networks:
+
+  private:
+    internal: true
+    ipam:
+      driver: default
+      config:
+        - subnet: 172.19.0.0/29
+
+  public:
+    driver: bridge
+
+secrets:
+  connstr_index:
+    file: ./index/.connstr
+  
+  kronos_pgpass:
+    file: ./kronos/.pgpass
+
+  cleaner_pgpass:
+    file: ./cleaner/.pgpass
+
+  backend_env: 
+    file: ./backend/.pgpass
+#
+#  backend_env2:
+#    file: ./backend/.pgU
+
+  index_webkey_crt:
+    file: ./index/webkey.crt
+
+  index_webkey_key:
+    file: ./index/webkey.key
+
+  ro_webkey_crt:
+    file: ./ro1/webkey.crt
+
+  ro_webkey_key:
+    file: ./ro1/webkey.key
+
+  connstr_ro1:
+    file: ./ro1/.connstr
+
+  bhba:
+    file: ./sql/c/pg_hba.conf
+
+  bmyhp:
+    file: ./sql/c/my.post.conf
+
+
+services:
+  dnsmsq: 
+    networks:
+      public:
+
+    cap_add:
+      - NET_ADMIN
+
+    volumes:
+      - ./dsn/t:/tmp:ro
+
+    ports:
+      - 53:53/udp
+
+    #build:
+    #  context: ./dsn
+      
+    image: aciobanu/dnsmasq:latest
+    # -2 - --dns-loop-detect
+    command: dnsmasq -A /some/${INDXIP} -k -r /tmp/resolv.conf.13 -q --log-facility=/var/log/syslog
+
+# https://sqlalche.me/e/20/e3q8 viime aikoina ongelma
+  backend:
+    image: postgres:15-alpine 
+    network_mode:  none
+
+    restart: always
+
+    secrets:
+      - backend_env
+      #- backend_env2
+
+    env_file: 
+      - ./backend/.env
+
+    volumes:
+      - ./backend/possujuna:/var/lib/postgresql/data:rw
+      - /run/postgresql:/run/postgresql:rw
+      - ./sql/2:/tmp:ro
+#      - ./sql/1:/docker-entrypoint-initdb.d:ro    
+
+    command: postgres -c hba_file=/tmp/pg_hba.conf -c config_file=/tmp/my.post
+    #command: postgres -c hba_file=/run/secrets/bhba -c config_file=/run/secrets/bmyhp
+
+  cleaner:
+    network_mode:  none
+
+    depends_on:
+      - backend
+
+    env_file: 
+      - ./cleaner/.env
+
+    secrets:
+      - cleaner_pgpass
+
+    volumes:
+      - ./temporary1:/data/temp:rw
+      - ./permanent1:/data/perm:rw
+      - /run/postgresql:/run/postgresql:rw
+
+    build:
+      context: cleaner
+      dockerfile: Dockerfile3
+
+      args:
+        lib_vrs: 2
+        rs_key: ${RSKEY} 
+
+  kronos:
+    depends_on:
+      - backend
+    
+    env_file: 
+      - ./kronos/.env
+
+    secrets:
+      - kronos_pgpass
+
+#TODO:rsk secretsin kautta
+    build:
+      context: cleaner
+      dockerfile: Dockerfile_k
+
+    network_mode:  none
+
+    volumes:
+       - /run/postgresql:/run/postgresql:rw
+
+  ro2:
+    networks:
+      public:
+ 
+    cap_add:
+      - NET_ADMIN
+
+      
+    depends_on:  
+      - backend
+
+    secrets:
+      - ro_webkey_crt
+      - ro_webkey_key
+      
+    env_file: 
+      - ./ro1/.env
+
+    build:
+      context: ro1
+
+    volumes:
+     - ./temporary1:/data/temp:rw
+
+  index:
+    command: "python3 -m flask run -h 0.0.0.0"
+    environment: 
+      - FLASK_APP=/app/view.py   
+
+    networks:
+      private:
+        ipv4_address: 172.19.0.2
+
+
+    depends_on:  
+      - backend
+
+    env_file:
+      - ./index/.env
+
+    secrets:
+      - connstr_index
+
+    build:
+      context:  index
+      dockerfile: Dockerfile41
+
+
+    volumes:
+       - /run/postgresql:/run/postgresql:rw
+       - ./app:/app:ro
+
+  index2:
+    networks:
+      private:
+        ipv4_address: 172.19.0.5
+
+    cap_add:
+      - NET_ADMIN
+
+    depends_on:  
+      - backend
+
+    env_file:
+      - ./index/.env
+
+    secrets:
+     - index_webkey_crt
+     - index_webkey_key
+
+    build:
+      context:  index
+      dockerfile: Dockerfile8
+

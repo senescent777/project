@@ -1,0 +1,305 @@
+version: "3.7"
+
+#TODO:vrkot ktsottava kntoon, mtkä kntit mhinkin vrkkoon
+networks:
+
+  private:
+    internal: true
+    ipam:
+      driver: default
+      config:
+        - subnet: 172.19.0.0/27
+
+secrets:
+
+  backend_env: 
+    file: ./backend/.pgpass
+#tartteeko oikeesti?
+#  backend_env2:
+#    file: ./backend/.pgU
+
+  connstr_index:
+    file: ./index/.connstr
+
+  connstr_ro1:
+    file: ./ro1/.connstr
+
+  ro_webkey_crt:
+    file: ./ro1/webkey.crt
+
+  ro_sk:
+    file: ./ro1/sk.txt
+      
+  ro_webkey_key:
+    file: ./ro1/webkey.key
+    
+  ro_rsk2:
+    file: ./ro1/${RSKEY2}.key
+    
+  index_webkey_crt:
+    file: ./index/webkey.crt
+
+  index_webkey_key:
+    file: ./index/webkey.key
+    
+  acab:
+    file: ./sql/2/pg_hba.conf
+    
+  cobhc:
+    file: ./sql/2/my.post
+    
+  muad_dib:
+    file: ./sql/1/init-user-db.sql
+    
+services:
+  dnsmsq:
+    image: aciobanu/dnsmasq:latest
+    
+    cap_add:
+      - NET_ADMIN
+    
+    #jos jatkossa olisi pelkkä dsn   ?
+    volumes:
+      - ./dsn/t:/tmp:ro
+
+    ports:
+      - 127.0.0.1:53:53/udp
+    
+    #TODO:ip.muutoksen jälkeen tulisi tietenkin testata...
+    command: dnsmasq -A /some/${INDXIP0} -k -r /tmp/resolv.conf.13 -2 --dns-loop-detect -q --log-facility=/var/log/syslog
+    
+      
+  backend:
+    image: postgres:15-alpine 
+    network_mode:  none
+    restart: always
+
+    secrets:
+      - backend_env
+#      - backend_env2
+      - acab
+      - cobhc
+      #ilmankin ao. jutskaa pärjäisi jos buildr-vaiheessa...
+      - source: muad_dib
+        target: /docker-entrypoint-initdb.d/init-user-db.sql
+        mode: 0444
+
+    env_file: 
+      - ./backend/.env
+
+    volumes:
+      - ./backend/possujuna:/var/lib/postgresql/data:rw
+      - /run/postgresql:/run/postgresql:rw
+
+    command: postgres -c hba_file=/run/secrets/acab -c config_file=/run/secrets/cobhc
+  
+  index1:
+    networks:
+      private:
+        ipv4_address: ${INDXIP}
+        
+    ports:
+      - ${RW_PORT}:443/tcp
+              
+    build:
+      context:  index
+      dockerfile: Dockerfile8
+      
+    secrets:
+     - index_webkey_crt
+     - index_webkey_key     
+     
+    volumes:
+      - /run/ngix:/run/ngix:rw
+      - ./keys/pub:/keys:ro
+  
+  index2:
+    networks:
+      private:
+        ipv4_address: ${INDXIP0}
+        
+    ports:
+      - ${RW_PORT}:443/tcp
+              
+    build:
+      context:  index
+      dockerfile: Dockerfile9
+      
+    secrets:
+     - index_webkey_crt
+     - index_webkey_key     
+     
+    volumes:
+      - /run/ngix:/run/ngix:rw
+      #- ./index/conf.d:/etc/nginx/conf.d:ro
+      - ./keys/pub:/keys:ro
+           
+  index:
+    #command: "/opt/venv/bin/python3 /app/index.py"
+    command: "python3 /app/index.py"
+    ##command: "su index -c /home/index/python/bin/python /app/index.py"
+    network_mode:  none
+
+    build:
+      context:  index
+      dockerfile: Dockerfile41
+      #dockerfile: Dockerfile42
+      #dns: HUOM.12.1.24:ei ruettu tässä dockerfilen versiossa
+      #  - 10.0.2.2
+
+    depends_on:  
+      - backend
+
+    env_file:
+      - ./index/.env
+
+    secrets:
+      - connstr_index
+
+    volumes:
+       - /run/postgresql:/run/postgresql:rw
+       - ./app:/app:ro
+       - /run/ngix:/run/ngix:rw
+       - ./keys/pub:/keys:ro
+      
+  ro1:
+    networks:
+      private:
+        ipv4_address: 172.19.0.5
+
+    ports:
+      - ${RW_PORT}:443/tcp
+      
+    secrets:
+      - ro_webkey_crt
+      - ro_webkey_key
+
+    build:
+      context: ro1
+
+    volumes:
+      - ./ro1/conf.d:/etc/nginx/conf.d:ro
+      - /run/ngix:/run/ngix:rw
+      - ./keys/pub:/keys:ro
+
+  ro:
+    command: "python3 /app/ro.py"
+    network_mode:  none
+              
+    depends_on:  
+      - backend
+
+    env_file:
+      - ./ro1/.env
+    
+    environment:
+      RW_IP: ${RW_IP}
+      RW_PORT: ${RW_PORT}
+      RSKEY2: ${RSKEY2}
+      
+    secrets:
+      - connstr_ro1
+      - ro_sk
+      - ro_rsk2
+      
+    volumes:
+       - /run/postgresql:/run/postgresql:rw
+       - /run/ngix:/run/ngix:rw
+       - ./app:/app:ro
+       - ./temporary1:/data/temp:ro
+       - ./permanent1:/data/perm:ro
+       - ./keys/pub:/keys:ro
+       
+    build:
+      context:  ro1
+      dockerfile: Dockerfile2
+      #dns: ei tuettu tässä composen vers?
+      #  - 10.0.2.2
+
+  rw1:
+    image: nginx:mainline-alpine
+    
+    networks:
+      private:
+        ipv4_address: ${RW_IP}
+
+    ports:
+      - ${RW_PORT}:443/tcp
+      
+    depends_on:  
+      - backend
+
+    env_file:
+      - ./rw1/.env
+      
+    volumes:
+      - ./keys/pub:/keys:ro
+#rw1 täytyy voida varmistaa että sisältö peräisin oikealta lähettäjltä  
+
+      
+  msgb0x1:
+    image: nginx:mainline-alpine
+    network_mode:  none
+#    networks:
+#      private:
+      
+    ports:
+      - 2443:443/tcp
+           
+    depends_on:  
+      - backend
+
+    env_file:
+      - ./msgb0x/.env 
+ #TODO:keys/pub mukaan?  volumekseen  
+    
+#  local_rw1:
+#    #image: nginx:mainline-alpine toistaiseksi näin
+#    network_mode:  none
+#    ports:
+#  - 127.0.0.1:${RW_PORT}:443/tcp
+#      
+#    depends_on:  
+#      - backend
+#
+#   env_file:
+#     - ./local_rw/.env 
+#   
+#   build:
+#     dockerfile: Dockerfile666
+#     context: ./local_rw  
+
+    
+#HUOM:l_rw käyttämään:loki.gpg joihinkin allekirj. hommiin (olisko enemm'n filex-sh asiaa)
+#VAIH:clientd-kontti, hakee avaimia, työntää tdstoja rw-kontille yms
+#saa nähdä verkotuksen kanssa, toisraiseksi näin
+  clientd:
+    network_mode:  none
+    image: alpine:3.16
+    
+#TODO:keys/pub mukaan?  volumekseen  
+#VAIH:uusi alpine-kontti, reg, käyttää thor.gpg allekrijoitukseen
+#toistaiseksi ei verkkoa tässä
+  reg:
+    network_mode:  none
+    image: alpine:3.16  
+#  #Flaskin frontend (välimuistittaa) 
+#  #HUOM.30.12.23:kommentoitu jemmaan koska ip-osoitteesta nalkutus
+#  ro2:
+#    networks:
+#      private:
+#        ipv4_address: 172.19.0.13
+#    ports:
+#      - ${RW_PORT}:443/tcp
+#    secrets:
+#      - ro_webkey_crt
+#      - ro_webkey_key
+#
+#    #HUOM. tavanomainen Dockerfile ro1-hmistossa==nginx, Dockerfile2=Python 
+#    build:
+#      context: ro1
+#      dockerfile: Dockerfile3
+#
+#    volumes:
+#      - /run/ngix:/run/ngix:rw
+#      - ./temporary2:/data/temp:rw

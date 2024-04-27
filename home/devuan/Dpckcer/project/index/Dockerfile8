@@ -1,0 +1,10 @@
+FROM nginx:mainline-alpine AS stage1
+
+WORKDIR /
+##HUOM. apk update && apk fetch --recursive tulee muistaa
+
+#HUOM.2210123:tables takaisin sittenq toimii taas(jokohan jo 12/23, TODO)
+RUN rm /docker-entrypoint.d/10-listen*
+
+COPY ./nginx.conf /etc/nginx/
+COPY ./default3.conf /etc/nginx/conf.d

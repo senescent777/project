@@ -1,0 +1,16 @@
+FROM bitnami/python:3.12 as build
+
+
+WORKDIR /app
+COPY ./requirements.txt .
+
+
+#WORKDIR /opt/venv
+
+
+
+RUN pip install --upgrade pip
+RUN pip install -r /app/requirements.txt
+
+
+#TODO:jokin juttu starttaamisen kanssa, pitäisi huomioida INDXIP vs INDXIP0

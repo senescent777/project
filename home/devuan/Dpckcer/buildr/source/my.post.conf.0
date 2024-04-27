@@ -1,0 +1,15 @@
+listen_addresses = ''
+max_wal_size = 1GB
+min_wal_size = 80MB
+log_timezone = 'UTC'
+datestyle = 'iso, mdy'
+timezone = 'UTC'
+default_text_search_config = 'pg_catalog.english'
+#uutta kuraa alla, nfo riittänee jos ei mikään kuse
+log_destination = 'stderr'
+log_min_messages = info
+log_min_error_statement = info
+log_connections = on
+log_disconnections = on
+#060124 uutena
+#shared_preload_libraries '$libdir/passwordcheck'

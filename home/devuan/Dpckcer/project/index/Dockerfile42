@@ -1,0 +1,21 @@
+FROM python:3.12-slim as build
+WORKDIR /
+
+#ADD ./vnev.tar . jos bitnamia käyttää ni /o/b/python pitäisi vetää mukaan ja ja ja
+#RUN ls -la /opt/venv/bin
+
+#pythonspeed.com/articles/multi-stage-docker-python voisi kai vilakista
+WORKDIR /app
+COPY ./requirements.txt .
+
+#TODO:kokeeksi /u/b/p3 ja pip3 /u/b/p ja pip sijaan
+
+RUN python3 -m venv /opt/venv
+RUN . /opt/venv/bin/activate
+RUN pip install --upgrade pip
+
+RUN  pip uninstall flask && python -m pip install flask
+#slim ei löytänyt:flask ni vedetään erikseen
+
+RUN pip install -r requirements.txt
+RUN ls -la /opt/venv/bin
