@@ -1,0 +1,43 @@
+FROM alpine:3.16 as stg1
+WORKDIR /
+
+RUN mkdir -p /data/temp
+RUN mkdir -p /data/perm
+ADD ./cleaner.tar .
+RUN touch repo.list&&apk add --repositories-file=repo.list --allow-untrusted --no-network --no-cache /data/apkcache/*.apk 
+RUN rm /data/apkcache/*
+
+RUN touch /docker-entrypoint.sh
+RUN echo "#!/bin/sh" >>  /docker-entrypoint.sh
+RUN echo "/usr/sbin/crond -f -l 2" >>  /docker-entrypoint.sh
+RUN chmod 0755 /docker-entrypoint.sh
+
+FROM stg1 AS stg2
+RUN adduser -D kronos 
+RUN mkdir -p /home/kronos/bin
+
+#VAIH:jatkossa kopsataan ihan vain lib.sh koska linkitystä pistamassa buildr'in avstksella
+COPY ./lib2.sh /home/kronos/lib.sh
+#COPY ./lib.sh /home/kronos/lib.sh
+
+COPY ./cd94.sh  /home/kronos/bin/
+RUN chmod 0555 /home/kronos/bin/*.sh
+RUN chmod 0555 /home/kronos/bin/c*
+
+RUN ln -s /run/secrets/kronos_pgpass /home/kronos/.pgpass
+RUN chown -R kronos:kronos /home/kronos
+
+#toimiiko tämä kohta? ehkä sitten jos olisi rskey
+#ARG rs_key
+#RUN mkdir -p /home/cleaner/keys
+#COPY ./rskey.key /home/cleaner/keys/${rs_key}
+
+RUN crontab -r
+COPY ./jobs /tmp/jobs 
+RUN grep -v '#' /tmp/jobs | crontab -u kronos -
+RUN rm /tmp/jobs 
+
+#yritys tini'n kanssa, joskohan toimisi
+RUN chmod +x /sbin/tini
+ENTRYPOINT ["/sbin/tini", "--"]
+CMD /docker-entrypoint.sh

@@ -1,0 +1,4 @@
+*/15 * * * * PGPASSFILE=$HOME/.pgpass psql -d ${PGDATABASE} -U ${PGUSER} -c "CALL clean_tables_1();"
+#VAIH:del_md_rows tunneittain
+5 0-23/2 * * * /home/kronos/bin/cd94.sh
+#0 * * * *  PGPASSFILE=$HOME/.pgpass psql -d ${PGDATABASE} -U ${PGUSER} -c "CALL del_md_rows();"

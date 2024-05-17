@@ -1,0 +1,42 @@
+FROM alpine:3.16 as stg1
+WORKDIR /
+
+#HUOM. parametreilla pystyisi kai hoitamaan samalla dockerfilellä 2 konttia jos siis parametrit saa vain toimimaan
+
+RUN mkdir -p /data/temp
+RUN mkdir -p /data/perm
+ADD ./cleaner.tar .
+RUN touch repo.list&&apk add --repositories-file=repo.list --allow-untrusted --no-network --no-cache /data/apkcache/*.apk 
+RUN rm /data/apkcache/*
+
+COPY ./docker-entrypoint.sh /docker-entrypoint.sh
+RUN chmod 0755 /docker-entrypoint.sh
+
+FROM stg1 AS stg2
+RUN adduser -D cleaner 
+RUN mkdir -p /home/cleaner/bin
+
+COPY ./NKG2Dv3.sh /home/cleaner/bin/
+##VAIH:jatkossa kopsataan ihan vain lib.sh koska linkitystä poistamassa buildr'in avstksella
+COPY ./lib2.sh /home/cleaner/bin/lib.sh
+#COPY ./lib.sh /home/cleaner/bin
+RUN chmod 0555 /home/cleaner/bin/*.sh
+
+RUN ln -s /run/secrets/cleaner_pgpass /home/cleaner/.pgpass
+
+#hoitiko buildr jo tämän avaimen?
+COPY ./thor.gpg /home/cleaner/
+
+RUN chown cleaner:cleaner /home/cleaner/*.gpg
+RUN chmod 0600 /home/cleaner/*.gpg
+RUN su cleaner -c 'gpg --import /home/cleaner/*.gpg'
+#build-vaiheessa ei käytettävissä, pikemminkin .gnupg-hmisto olisi saatava...
+RUN su cleaner -c 'gpg --check-trustdb'
+
+RUN chown -R cleaner:cleaner /home/cleaner
+RUN crontab -r
+RUN echo "1 * * * * /home/cleaner/bin/NKG2Dv3.sh"  | crontab -u cleaner -
+
+RUN chmod +x /sbin/tini
+ENTRYPOINT ["/sbin/tini", "--"]
+CMD /docker-entrypoint.sh
