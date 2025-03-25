@@ -18,5 +18,5 @@ root	ALL=(ALL:ALL) ALL
 #TODO:root:in muuttaminen vielä
 #%sudo	ALL=(ALL:ALL) ALL
 
-
-#@includedir /etc/sudoers.d
+#HUOM.250325:hmistoa voi vielä tarvita, ei siis pois (eikä hai)
+@includedir /etc/sudoers.d
