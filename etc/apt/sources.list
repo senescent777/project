@@ -1,3 +1,0 @@
-deb https://devuan.keff.org/merged DISTRO main  
-deb https://devuan.keff.org/merged DISTRO-updates main  
-deb https://devuan.keff.org/merged DISTRO-security main  

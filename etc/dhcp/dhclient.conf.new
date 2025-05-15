@@ -1,7 +1,0 @@
-
-option rfc3442-classless-static-routes code 121 = array of unsigned integer 8;
-send host-name = gethostname();
-request subnet-mask, broadcast-address, time-offset, routers,
-	interface-mtu, rfc3442-classless-static-routes;
-require subnet-mask;
-prepend domain-name-servers 127.0.0.1;
